@@ -1,6 +1,6 @@
 const express = require('express')
 const app = express()
-const port = 9180
+const port = 8899
 const mysql = require('mysql');  // mysql 모듈 로드
 const conn = {  // mysql 접속 설정
     host: '127.0.0.1',
