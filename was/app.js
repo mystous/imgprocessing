@@ -1,3 +1,4 @@
+const spawn = require('child_process').spawn;
 const express = require('express')
 const app = express()
 const router = express.Router()
@@ -16,9 +17,10 @@ const cors = require('cors');
 const fs = require('fs'); 
 const mime = require('mime');
 
+const hostIp = "121.160.75.246";
 const dataLocation = "./lunit_data/";
 const saliencyMapLocation = "./saliency_map/";
-const downloadLocation = "http://localhost:8080/files/images/";
+const downloadLocation = "http://" + hostIp + ":8080/files/images/";
 
 app.use(cors()); 
 app.use(fileUpload());
@@ -49,7 +51,8 @@ function errorResponse(res, errorCode, errorMessage){
 }
 
 app.get('/images', (req, res) => {
-  var queryString = "select * from lunit.imageMeta, lunit.imageStatus where lunit.imageMeta.status = lunit.imageStatus.statusId";
+  var queryString = "select * from lunit.imageMeta, lunit.imageStatus \
+  where lunit.imageMeta.status = lunit.imageStatus.statusId";
 
   console.log(queryString);
   connection.query(queryString, res, function (err, results, fields) {
@@ -88,7 +91,8 @@ app.get('/files/images/:imageFile', (req, res) => {
 })
 
 function buildImageMetaAndInsert(newFileName, originalName){
-  var queryString = "insert into `lunit`.`imageMeta` (`imageId`, `desc`, `uploadedTime`, `status`, `uploadedLocation`, `maxXIndex`, `maxYIndex`) VALUES (";
+  var queryString = "insert into `lunit`.`imageMeta` \
+  (`imageId`, `desc`, `uploadedTime`, `status`, `uploadedLocation`, `maxXIndex`, `maxYIndex`) VALUES (";
   var timestampString = getFormatDate(new Date());
   queryString += "'" + newFileName + "', ";
   queryString += "'" + originalName + "', ";;
@@ -109,7 +113,37 @@ function buildImageMetaAndInsert(newFileName, originalName){
 }
 
 function startPatchfying(imageId, newFileName){
+  return new Promise(function(resolve, reject) {
+    let process = spawn('bash');
+    const command = './image_processing_worker\n';
+    try {
+      var queryString = "update lunit.imageMeta set status = 1 where (imageId = '" + imageId + "');";
+      
+      console.log(queryString);
+      process.stdin.write(command);
+      process.stdin.end(); 
 
+      connection.query(queryString, function (err, results, fields) {
+        if (err) {
+            console.log(err);
+            return -1;
+        }
+      });
+
+      process.stdout.on ('data', function(data){
+        console.log(String(data));
+      });
+
+      process.on('close', function (code) {
+        console.log('end')
+        resolve(code);
+      });
+      
+    } catch (err) {
+      console.log('error')
+      reject(err);
+    }
+  })
 }
 
 app.post('/images', (req, res) => {
@@ -163,7 +197,9 @@ function getImageMetaResult(result){
 
 app.get('/images/:imageId', (req, res) => {
 
-  var queryString = "select * from lunit.imageMeta, lunit.imageStatus where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" + req.params.imageId + "' limit 1";
+  var queryString = "select * from lunit.imageMeta, lunit.imageStatus \
+  where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" 
+  + req.params.imageId + "' limit 1";
 
   console.log(queryString);
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
@@ -185,7 +221,9 @@ app.get('/images/:imageId', (req, res) => {
 })
 
 app.get('/images/:imageId/:x/:y', (req, res) => {
-  var queryString = "select * from lunit.imageMeta, lunit.imageStatus where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" + req.params.imageId + "' limit 1";
+  var queryString = "select * from lunit.imageMeta, lunit.imageStatus \
+  where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" 
+  + req.params.imageId + "' limit 1";
 
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     var jsonArray = new Array();
@@ -206,7 +244,11 @@ app.get('/images/:imageId/:x/:y', (req, res) => {
       return;
     }
 
-    queryString = "select * from lunit.patchImageMeta where imageId='" + req.params.imageId + "' and xIndex='" + req.params.x +"' and yIndex='" + req.params.y + "' limit 1;";
+    queryString = "select * from lunit.patchImageMeta where imageId='" 
+    + req.params.imageId + "' and xIndex='" 
+    + req.params.x +"' and yIndex='" 
+    + req.params.y + "' limit 1;";
+
     connection.query(queryString, res, function (err, patchResults, fields) { // testQuery 실행
       var jsonArray = new Array();
       console.log(patchResults[0]);
@@ -232,10 +274,13 @@ app.get('/images/:imageId/:x/:y', (req, res) => {
   });
 })
 
-
 app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
     
-  var queryString = "select * from lunit.patchImageMeta, lunit.imageStatus where lunit.patchImageMeta.histogramStatus = lunit.imageStatus.statusId and imageId='" + req.params.imageId + "' and xIndex='" + req.params.x + "' and yIndex='" + req.params.y + "' limit 1";
+  var queryString = "select * from lunit.patchImageMeta, lunit.imageStatus \
+  where lunit.patchImageMeta.histogramStatus = lunit.imageStatus.statusId and imageId='" 
+  + req.params.imageId + "' and xIndex='" 
+  + req.params.x + "' and yIndex='" 
+  + req.params.y + "' limit 1";
 
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     if (err) {
@@ -271,7 +316,11 @@ app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
 })
 
 app.get('/images/:imageId/:x/:y/histogram', (req, res) => {
-  var queryString = "select * from lunit.patchImageMeta, lunit.imageStatus where lunit.patchImageMeta.histogramStatus = lunit.imageStatus.statusId and imageId='" + req.params.imageId + "' and xIndex='" + req.params.x + "' and yIndex='" + req.params.y + "' limit 1";
+  var queryString = "select * from lunit.patchImageMeta, lunit.imageStatus \
+  where lunit.patchImageMeta.histogramStatus = lunit.imageStatus.statusId and imageId='" 
+  + req.params.imageId + "' and xIndex='" 
+  + req.params.x + "' and yIndex='" 
+  + req.params.y + "' limit 1";
 
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     if (err) {
@@ -304,18 +353,18 @@ app.get('/images/:imageId/:x/:y/histogram', (req, res) => {
 })
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Lunit Image Processing Toy app listening on port ${port}`);
 })
 
-function generateUUID() { // Public Domain/MIT
-  var d = new Date().getTime();//Timestamp
-  var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
-  return 'xxxxxxxx'.replace(/[xy]/g, function(c) {
-      var r = Math.random() * 16;//random number between 0 and 16
-      if(d > 0){//Use timestamp until depleted
+function generateUUID() { 
+  var d = new Date().getTime();
+  var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;
+  return 'xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16;
+      if(d > 0){
           r = (d + r)%16 | 0;
           d = Math.floor(d/16);
-      } else {//Use microseconds since page-load if supported
+      } else {
           r = (d2 + r)%16 | 0;
           d2 = Math.floor(d2/16);
       }
@@ -326,16 +375,15 @@ function generateUUID() { // Public Domain/MIT
 function getFormatDate(date){
   var year = date.getFullYear();
   var month = (1 + date.getMonth());
-  month = month > 10 ? month : '0' + month; // 10이 넘지 않으면 앞에 0을 붙인다
+  month = month > 10 ? month : '0' + month;
   var day = date.getDate();
-  day = day > 10 ? day : '0' + day; // 10이 넘지 않으면 앞에 0을 붙인다
+  day = day > 10 ? day : '0' + day; 
   var hours = date.getHours();
-  hours = hours > 10 ? hours : '0' + hours; // 10이 넘지 않으면 앞에 0을 붙인다
+  hours = hours > 10 ? hours : '0' + hours; 
   var minutes = date.getMinutes();
-  minutes =  minutes > 10 ? minutes : '0' + minutes; // 10이 넘지 않으면 앞에 0을 붙인다
+  minutes =  minutes > 10 ? minutes : '0' + minutes; 
   var seconds = date.getSeconds();
-  seconds = seconds > 10 ? seconds : '0' + seconds; // 10이 넘지 않으면 앞에 0을 붙인다
+  seconds = seconds > 10 ? seconds : '0' + seconds; 
 
-  // return year + '-' + month + '-' + day;
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} `
 }
