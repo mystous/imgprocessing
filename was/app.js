@@ -1,5 +1,6 @@
 const express = require('express')
 const app = express()
+const router = express.Router()
 const port = 8899
 const mysql = require('mysql');  // mysql 모듈 로드
 const conn = {  // mysql 접속 설정
@@ -13,6 +14,7 @@ const conn = {  // mysql 접속 설정
 const fileUpload = require('express-fileupload'); 
 const cors = require('cors'); 
 const fs = require('fs'); 
+const mime = require('mime');
 
 const dataLocation = "./lunit_data/";
 const saliencyMapLocation = "./saliency_map/";
@@ -75,7 +77,14 @@ app.get('/files/images/:imageFile', (req, res) => {
   var filePath = dataLocation;
   var fileName = req.params.imageFile;
 
-  res.download(filePath, fileName);
+  if( fs.existsSync(filePath+fileName)){
+    var mimeType = mime.getType(filePath+fileName);
+
+    res.setHeader('Content-disposition', 'attachment; filename=' + fileName);
+    res.setHeader('Content-type', mimeType);
+
+    res.download(filePath+fileName);
+  }
 })
 
 function buildImageMetaAndInsert(newFileName, originalName){
@@ -223,7 +232,9 @@ app.get('/images/:imageId/:x/:y', (req, res) => {
   });
 })
 
+
 app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
+    
   var queryString = "select * from lunit.patchImageMeta, lunit.imageStatus where lunit.patchImageMeta.histogramStatus = lunit.imageStatus.statusId and imageId='" + req.params.imageId + "' and xIndex='" + req.params.x + "' and yIndex='" + req.params.y + "' limit 1";
 
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
@@ -246,8 +257,16 @@ app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
     }
     var filePath = saliencyMapLocation;
     var fileName = req.params.imageId + "_" + req.params.x + "_" + req.params.y + ".jpg";
-    console.log(filePath + fileName);
-    res.download(filePath, fileName);
+
+    console.log(fileName);
+    if( fs.existsSync(filePath+fileName)){
+      var mimeType = mime.getType(filePath+fileName);
+
+      res.setHeader('Content-disposition', 'attachment; filename=' + fileName);
+      res.setHeader('Content-type', mimeType);
+
+      res.download(filePath+fileName);
+    }
   });
 })
 

@@ -122,6 +122,9 @@ mkdir lunit
 cd lunit/
 npm init
 npm install --save express
+npm install --save mysql
+npm install --save express-fileupload 
+npm install --save cors
 ```
 
 아래 소스 코드로 Node.js 테스트
@@ -137,4 +140,8 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+```
+mysql console에서 lunit 계정 아이디 패스워드로 접속하도록 변경
+```console
+mysql> alter user 'lunit'@'%' identified with mysql_native_password by 'lunit-test'
 ```
