@@ -7,7 +7,7 @@ docker pull ubuntu
 
 Ubuntu OS 실행
 ```console
-docker runt -it -p 8899:8899 ubuntu
+docker runt -it -p 8899:8899 --network="host" ubuntu
 ```
 
 # OpenCV 설치
@@ -16,37 +16,21 @@ Ubuntu Docker 안에서 실행
 
 ```console
 cd ~
-
 apt update
-
 apt upgrade
-
 apt install sudo
-
 sudo apt install screen vim wget curl cmake g++ wget unzip build-essential libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev libavformat-dev libswscale-dev libdc1394-22-dev libxvidcore-dev libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgtk-3-dev -y
-
 mkdir opencv
-
 wget -O opencv-4.0.0.zip https://github.com/opencv/opencv/archive/4.0.0.zip
-
 wget -O opencv_contrib-4.0.0.zip https://github.com/opencv/opencv_contrib/archive/4.0.0.zip
-
 unzip opencv-4.0.0.zip
-
 unzip opencv_contrib-4.0.0.zip
-
 mkdir build
-
 cd build
-
 cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr/local -D BUILD_WITH_DEBUG_INFO=OFF -D BUILD_EXAMPLES=ON -D BUILD_opencv_python3=ON -D INSTALL_PYTHON_EXAMPLES=ON -D OPENCV_ENABLE_NONFREE=ON -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib-4.0.0/modules -D OPENCV_GENERATE_PKGCONFIG=ON -D WITH_TBB=ON ../opencv-4.0.0/
-
 nproc
-
 make -j 4
-
 sudo make install
-
 sudo ldconfig
 ```
 아래 소스 코드로 OpenCV 설치 테스트
