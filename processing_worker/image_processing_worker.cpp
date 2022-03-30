@@ -1,27 +1,133 @@
-/*
- *
- * cvout_sample just demonstrates the serial out capabilities of cv::Mat
- *  That is, cv::Mat M(...); cout << M;  Now works.
- *
- */
-#include "opencv2/core.hpp"
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <iostream>
+#include <string>
 using namespace std;
 using namespace cv;
-static void help(char** argv)
-{
-    cout
-    << "\n------------------------------------------------------------------\n"
-    << " This program shows the serial out capabilities of cv::Mat\n"
-    << "That is, cv::Mat M(...); cout << M;  Now works.\n"
-    << "Output can be formatted to OpenCV, matlab, python, numpy, csv and \n"
-    << "C styles Usage:\n"
-    << argv[0]
-    << "\n------------------------------------------------------------------\n\n"
-    << endl;
+
+const string PATCHIFIED = "2";
+const string CALCULATING = "3";
+const string CALCULATED = "4";
+const string PROCESSING_FAIL = "5";
+
+const int patchWidth = 256;
+const int patchHeight = 256;
+
+void insertPatchFileInformation(string imageId, int maxX, int maxY){
+  int i, j;
+  string queryString = "insert into lunit.patchImageMeta (`imageId`, `xIndex`, `yIndex`, `patchImageLocation`, `saliencyStatus`, `histogramStatus`) values ";
+
+  for (i = 0; i < maxX; ++i) {
+    for (j = 0; j < maxY; ++j) {
+      queryString += "('";
+      queryString += imageId;
+      queryString += "', '";
+      queryString += to_string(i + 1);
+      queryString += "', '";
+      queryString += to_string(j + 1);
+      queryString += "', '";
+      queryString += "http://121.160.75.246:8080/files/patches/";
+      queryString += imageId;
+      queryString += "_";
+      queryString += to_string(i + 1);
+      queryString += "_";
+      queryString += to_string(j + 1);
+      queryString += ".jpg";
+      queryString += "', '3', '3')";
+      if( i != maxX - 1 || j != maxY -1 ){
+        queryString += " , ";
+      }
+    }
+  }
+  queryString += ";";
+  cout << queryString << endl;
 }
+void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY = -1){
+  string queryString = "update lunit.imageMeta set `status` = '";
+
+  queryString += imgStatus;
+  queryString += "', `maxXIndex` = '";
+  queryString += to_string(maxX);
+  queryString += "', `maxYIndex` = '";
+  queryString += to_string(maxY);
+  queryString += "' where (`imageId` = '";
+  queryString += imageId;
+  queryString += "');";
+  cout << queryString << endl;
+}
+
+void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
+  cloutWidth = imageSize.width % patchWidth;
+  cloutHeight = imageSize.height % patchHeight;
+
+  maxX = imageSize.width / patchWidth + ( 0 == cloutWidth ? 0 : 1) ;
+  maxY = imageSize.height / patchHeight + ( 0 == cloutHeight ? 0 : 1) ;
+
+  cloutWidth = ( 0 == cloutWidth ) ? patchWidth : cloutWidth;
+  cloutHeight = ( 0 == cloutHeight ) ? patchHeight : cloutHeight;
+}
+
+string getPatchName(string imageId, int x, int y){
+  string patchFileName = "./patch_data/";
+  patchFileName += imageId;
+  patchFileName += "_";
+  patchFileName += to_string(x);
+  patchFileName += "_";
+  patchFileName += to_string(y);
+  patchFileName += ".jpg";
+  return patchFileName;
+}
+
+void patchingImage(string imageId, string fileName, int &maxX, int &maxY){
+  int i, j, cropWidth, cropHeight;
+  int cloutWidth, cloutHeight;
+
+  Mat originalImage = imread(fileName);
+  if( nullptr == originalImage.data )
+  {
+    cout << "Oops" << endl;
+    updateImageStatus(imageId, PROCESSING_FAIL);
+    return;
+  }
+
+  Size imageSize = originalImage.size();
+  calculatePatchNumbersAndCloutSize(imageSize, maxX, maxY, cloutWidth, cloutHeight);
+  
+  string patchFileName = imageId;
+  for( i = 0 ; i < maxY ; ++i ){
+    for( j = 0 ; j < maxX ; ++j ){
+      cropWidth = ( j + 1 == maxX ) ? cloutWidth : patchWidth;
+      cropHeight = ( i + 1 == maxY ) ? cloutHeight : patchHeight;
+      
+      Mat patchImage = Mat(Size(patchWidth, patchHeight), CV_8UC3, Scalar(255, 255, 255));
+      Mat sourceImage = originalImage(Rect(patchWidth * j, patchHeight * i, cropWidth, cropHeight));
+      Mat roi = patchImage(Rect(0, 0, cropWidth, cropHeight));
+      sourceImage.copyTo(roi);
+      imwrite(getPatchName(imageId, i + 1, j + 1), patchImage);
+    }
+  }
+
+  cout << "Pathcing task of '" << imageId << "'is done." << endl;
+  insertPatchFileInformation(imageId, maxX, maxY);
+  updateImageStatus(imageId, PATCHIFIED, maxX, maxY);
+}
+
 int main(int argc, char** argv)
 {
+  string  imageId, fileName; 
+  int maxX = 0, maxY = 0;
+  if( 3 != argc ){
+    cout << "ImageID and File Path have to pass!" << endl;
+    exit(1);
+  }
+
+  imageId = argv[1];
+  fileName = argv[2];
+
+  cout << "Starting image processing for [" << imageId << " : " << fileName << "]" << endl;
+  patchingImage(imageId, fileName, maxX, maxY);
+  /*
+
     cv::CommandLineParser parser(argc, argv, "{help h||}");
     if (parser.has("help"))
     {
@@ -52,5 +158,6 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < points.size(); ++i)
         points[i] = Point2f((float)(i * 5), (float)(i % 7));
     cout << "points = " << points << ";" << endl;
+    */
     return 0;
 }

@@ -19,6 +19,7 @@ const mime = require('mime');
 
 const hostIp = "121.160.75.246";
 const dataLocation = "./lunit_data/";
+const patchLocation = "./patch_data/";
 const saliencyMapLocation = "./saliency_map/";
 const downloadLocation = "http://" + hostIp + ":8080/files/images/";
 
@@ -76,8 +77,7 @@ app.get('/images', (req, res) => {
   });
 })
 
-app.get('/files/images/:imageFile', (req, res) => {
-  var filePath = dataLocation;
+function downloadFile(filePath, req, res){
   var fileName = req.params.imageFile;
 
   if( fs.existsSync(filePath+fileName)){
@@ -88,6 +88,14 @@ app.get('/files/images/:imageFile', (req, res) => {
 
     res.download(filePath+fileName);
   }
+}
+
+app.get('/files/patches/:imageFile', (req, res) => {
+  downloadFile(patchLocation, req, res);
+})
+
+app.get('/files/images/:imageFile', (req, res) => {
+  downloadFile(dataLocation, req, res);
 })
 
 function buildImageMetaAndInsert(newFileName, originalName){
@@ -115,7 +123,7 @@ function buildImageMetaAndInsert(newFileName, originalName){
 function startPatchfying(imageId, newFileName){
   return new Promise(function(resolve, reject) {
     let process = spawn('bash');
-    const command = './image_processing_worker\n';
+    const command = "./image_processing_worker " + imageId + " " + newFileName + "\n";
     try {
       var queryString = "update lunit.imageMeta set status = 1 where (imageId = '" + imageId + "');";
       
@@ -178,7 +186,7 @@ app.post('/images', (req, res) => {
   jsonArray.push(JSON.parse(jsonObj));
   res.status(201).json(jsonArray);
   
-  startPatchfying(newImageId);
+  startPatchfying(newImageId, newFilePath);
 })
 
 function getImageMetaResult(result){
