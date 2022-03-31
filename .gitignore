@@ -105,3 +105,5 @@ dist
 
 image_processing_worker
 lunit_data/
+patch_data/
+saliency_map/

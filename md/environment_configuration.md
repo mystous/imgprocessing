@@ -19,7 +19,7 @@ cd ~
 apt update
 apt upgrade
 apt install sudo
-sudo apt install screen vim wget curl cmake g++ wget unzip build-essential libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev libavformat-dev libswscale-dev libdc1394-22-dev libxvidcore-dev libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgtk-3-dev -y
+sudo apt install screen vim wget curl cmake g++ wget unzip build-essential libjpeg-dev libtiff5-dev libpng-dev libavcodec-dev libavformat-dev libswscale-dev libdc1394-22-dev libxvidcore-dev libx264-dev libxine2-dev libv4l-dev v4l-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgtk-3-dev libmysqlcppconn-dev -y 
 mkdir opencv
 wget -O opencv-4.0.0.zip https://github.com/opencv/opencv/archive/4.0.0.zip
 wget -O opencv_contrib-4.0.0.zip https://github.com/opencv/opencv_contrib/archive/4.0.0.zip
@@ -128,4 +128,10 @@ app.listen(port, () => {
 mysql console에서 lunit 계정 아이디 패스워드로 접속하도록 변경
 ```console
 mysql> alter user 'lunit'@'%' identified with mysql_native_password by 'lunit-test'
+```
+
+# processing_worker build
+
+```console
+g++ -Wall -I/usr/include/cppconn image_processing_worker.cpp -o image_processing_worker $(pkg-config --cflags --libs opencv4) -L/usr/lib -lmysqlcppconn
 ```

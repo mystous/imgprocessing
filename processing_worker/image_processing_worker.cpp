@@ -4,8 +4,17 @@
 #include <iostream>
 #include <string>
 #include <queue>
+#include "mysql_connection.h"
+#include "mysql_driver.h"
+#include <cppconn/driver.h>
+#include <cppconn/exception.h>
+#include <cppconn/resultset.h>
+#include <cppconn/statement.h>
+#include <cppconn/prepared_statement.h>
+
 using namespace std;
 using namespace cv;
+using namespace sql;
 
 const string PATCHIFIED = "2";
 const string CALCULATING = "3";
@@ -16,6 +25,15 @@ const int patchWidth = 256;
 const int patchHeight = 256;
 const string patchFilePath = "./patch_data/";
 const string saliencyMapPath = "./saliency_map/";
+
+const string mysqlHost = "tcp://127.0.0.1:3306";
+const string mysqlUser = "lunit";
+const string mysqlPassword = "lunit-test";
+const string mysqlDatabase = "lunit"; 
+
+mysql::MySQL_Driver *mysqlDriver = nullptr;
+Connection *mysqlConnection = nullptr;
+Statement *mysqlStatement = nullptr;
 
 void insertPatchFileInformation(string imageId, int maxX, int maxY){
   int i, j;
@@ -43,8 +61,9 @@ void insertPatchFileInformation(string imageId, int maxX, int maxY){
       }
     }
   }
-  queryString += ";";
+  //queryString += ";";
   cout << queryString << endl;
+  mysqlStatement->execute(queryString);
 }
 void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY = -1){
   string queryString = "update lunit.imageMeta set `status` = '";
@@ -56,8 +75,9 @@ void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY
   queryString += to_string(maxY);
   queryString += "' where (`imageId` = '";
   queryString += imageId;
-  queryString += "');";
+  queryString += "')";
   cout << queryString << endl;
+  mysqlStatement->execute(queryString);
 }
 
 void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult){
@@ -74,8 +94,9 @@ void updatePatchStatus(string imageId, Point element, string &histogram_string, 
   queryString += to_string(element.y);
   queryString += "' and `imageId` = '";
   queryString += imageId;
-  queryString += "');";
-  //cout << queryString << endl;
+  queryString += "')";
+  cout << queryString << endl;
+  mysqlStatement->execute(queryString);
 }
 
 void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
@@ -198,7 +219,6 @@ bool processingPatchingImage(string imageId, Point element){
 void processingPathchingImages(string imageId, int maxX, int maxY){
   queue<Point> processingQueue;
   int criticalCount = maxX * maxY * 10, count = 0;
-  bool processingSuccess = true;
 
   buildProcessingQueue(processingQueue, maxX, maxY);
   while(!processingQueue.empty()){
@@ -211,11 +231,22 @@ void processingPathchingImages(string imageId, int maxX, int maxY){
 
     if( ++count > criticalCount ){
       cout << "Too many retrying, breaking image processing!" << endl;
-      processingSuccess = false;
       updateImageStatus(imageId, PROCESSING_FAIL, maxX, maxY);
       break;
     }
   }
+}
+
+void initMySQL(){
+  mysqlDriver = mysql::get_mysql_driver_instance();
+  mysqlConnection = mysqlDriver->connect(mysqlHost, mysqlUser, mysqlPassword);
+  mysqlStatement = mysqlConnection->createStatement();
+  mysqlStatement->execute("use lunit");
+}
+
+void finalMySQL(){
+  delete mysqlStatement;
+  delete mysqlConnection;
 }
 
 int main(int argc, char** argv)
@@ -227,6 +258,8 @@ int main(int argc, char** argv)
     exit(1);
   }
 
+  initMySQL();
+
   imageId = argv[1];
   fileName = argv[2];
 
@@ -234,5 +267,6 @@ int main(int argc, char** argv)
   patchingImage(imageId, fileName, maxX, maxY);
   processingPathchingImages(imageId, maxX, maxY);
   
+  finalMySQL();
   return 0;
 }
