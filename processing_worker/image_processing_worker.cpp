@@ -1,7 +1,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/saliency/saliencySpecializedClasses.hpp>
 #include <iostream>
 #include <string>
+#include <queue>
 using namespace std;
 using namespace cv;
 
@@ -12,6 +14,8 @@ const string PROCESSING_FAIL = "5";
 
 const int patchWidth = 256;
 const int patchHeight = 256;
+const string patchFilePath = "./patch_data/";
+const string saliencyMapPath = "./saliency_map/";
 
 void insertPatchFileInformation(string imageId, int maxX, int maxY){
   int i, j;
@@ -56,6 +60,24 @@ void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY
   cout << queryString << endl;
 }
 
+void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult){
+  string queryString = "update lunit.patchImageMeta set `saliencyStatus` = '";
+  
+  queryString += saliencyMapResult ? "4" : "3";
+  queryString += "', `histogramStatus` = '";
+  queryString += histogramResult ? "4" : "3";
+  queryString += "', `histogram` = '";
+  queryString += histogram_string;
+  queryString += "' where (`xIndex` = '";
+  queryString += to_string(element.x);
+  queryString += "' and `yIndex` = '";
+  queryString += to_string(element.y);
+  queryString += "' and `imageId` = '";
+  queryString += imageId;
+  queryString += "');";
+  //cout << queryString << endl;
+}
+
 void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
   cloutWidth = imageSize.width % patchWidth;
   cloutHeight = imageSize.height % patchHeight;
@@ -66,16 +88,23 @@ void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int
   cloutWidth = ( 0 == cloutWidth ) ? patchWidth : cloutWidth;
   cloutHeight = ( 0 == cloutHeight ) ? patchHeight : cloutHeight;
 }
+string getFileName(string imageId, string path, int x, int y){
+  string fileName = path;
+  fileName += imageId;
+  fileName += "_";
+  fileName += to_string(x);
+  fileName += "_";
+  fileName += to_string(y);
+  fileName += ".jpg";
+  return fileName;
+}
+
+string getSaliencyMapName(string imageId, int x, int y){
+  return getFileName(imageId, saliencyMapPath, x, y);
+}
 
 string getPatchName(string imageId, int x, int y){
-  string patchFileName = "./patch_data/";
-  patchFileName += imageId;
-  patchFileName += "_";
-  patchFileName += to_string(x);
-  patchFileName += "_";
-  patchFileName += to_string(y);
-  patchFileName += ".jpg";
-  return patchFileName;
+  return getFileName(imageId, patchFilePath, x, y);
 }
 
 void patchingImage(string imageId, string fileName, int &maxX, int &maxY){
@@ -112,6 +141,83 @@ void patchingImage(string imageId, string fileName, int &maxX, int &maxY){
   updateImageStatus(imageId, PATCHIFIED, maxX, maxY);
 }
 
+void buildProcessingQueue(queue<Point> &processingQueue, int maxX, int maxY){
+  int i, j;
+
+  for( i = 0 ; i < maxY ; ++i ){
+    for(j = 0; j < maxX ; ++j ){
+      Point element = Point(j+1, i+1);
+      processingQueue.push(element);
+    }
+  }
+}
+
+bool processingSaliencyMap(string imageId, Point element){
+  Mat intermediateMap, saliencyMap;
+  string patchFileName = getPatchName(imageId, element.x, element.y);
+  string saliencyMapFileName = getSaliencyMapName(imageId, element.x, element.y);
+  Mat patchImage = imread(patchFileName);
+  cv::saliency::StaticSaliencySpectralResidual::create()->computeSaliency(patchImage, intermediateMap);
+  intermediateMap = intermediateMap * 255;
+  intermediateMap.convertTo(saliencyMap, CV_8U);
+  imwrite(saliencyMapFileName, saliencyMap);
+  return true;
+}
+
+bool processingHistogram(string imageId, Point element, string &histogram_string){
+  const int* channel_numbers = { 0 };
+  float channel_range[] = { 0.0, 255.0 };
+  const float* channel_ranges = channel_range;
+  int number_bins = 255;
+  MatND histogram;
+  Mat patchImage = imread(getPatchName(imageId, element.x, element.y), 0);
+  calcHist(&patchImage, 1, channel_numbers, Mat(), histogram, 1, &number_bins, &channel_ranges);
+  for( int i = 0 ; i < 256 ; ++i ){
+    histogram_string += to_string(cvRound(histogram.at<float>(i)));
+    if( 255 != i ){
+      histogram_string += ",";
+    }
+  }
+  //cout << "Hist: " << histogram_string << endl;
+  return true;
+}
+ 
+bool processingPatchingImage(string imageId, Point element){
+  string histogram_string;
+  bool saliencyMapResult, histogramResult;
+
+  saliencyMapResult = processingSaliencyMap(imageId, element);
+  histogramResult = processingHistogram(imageId, element, histogram_string);
+  if( false == saliencyMapResult || false == histogramResult ){
+    return false;
+  }
+  updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult);
+  return true;
+}
+
+void processingPathchingImages(string imageId, int maxX, int maxY){
+  queue<Point> processingQueue;
+  int criticalCount = maxX * maxY * 10, count = 0;
+  bool processingSuccess = true;
+
+  buildProcessingQueue(processingQueue, maxX, maxY);
+  while(!processingQueue.empty()){
+    Point element = processingQueue.front();
+    processingQueue.pop();
+   
+    if( !processingPatchingImage(imageId, element) ){
+      processingQueue.push(element);
+    }
+
+    if( ++count > criticalCount ){
+      cout << "Too many retrying, breaking image processing!" << endl;
+      processingSuccess = false;
+      updateImageStatus(imageId, PROCESSING_FAIL, maxX, maxY);
+      break;
+    }
+  }
+}
+
 int main(int argc, char** argv)
 {
   string  imageId, fileName; 
@@ -126,38 +232,7 @@ int main(int argc, char** argv)
 
   cout << "Starting image processing for [" << imageId << " : " << fileName << "]" << endl;
   patchingImage(imageId, fileName, maxX, maxY);
-  /*
-
-    cv::CommandLineParser parser(argc, argv, "{help h||}");
-    if (parser.has("help"))
-    {
-        help(argv);
-        return 0;
-    }
-    Mat I = Mat::eye(4, 4, CV_64F);
-    I.at<double>(1,1) = CV_PI;
-    cout << "I = \n" << I << ";" << endl << endl;
-    Mat r = Mat(10, 3, CV_8UC3);
-    randu(r, Scalar::all(0), Scalar::all(255));
-    cout << "r (default) = \n" << r << ";" << endl << endl;
-    cout << "r (matlab) = \n" << format(r, Formatter::FMT_MATLAB) << ";" << endl << endl;
-    cout << "r (python) = \n" << format(r, Formatter::FMT_PYTHON) << ";" << endl << endl;
-    cout << "r (numpy) = \n" << format(r, Formatter::FMT_NUMPY) << ";" << endl << endl;
-    cout << "r (csv) = \n" << format(r, Formatter::FMT_CSV) << ";" << endl << endl;
-    cout << "r (c) = \n" << format(r, Formatter::FMT_C) << ";" << endl << endl;
-    Point2f p(5, 1);
-    cout << "p = " << p << ";" << endl;
-    Point3f p3f(2, 6, 7);
-    cout << "p3f = " << p3f << ";" << endl;
-    vector<float> v;
-    v.push_back(1);
-    v.push_back(2);
-    v.push_back(3);
-    cout << "shortvec = " << Mat(v) << endl;
-    vector<Point2f> points(20);
-    for (size_t i = 0; i < points.size(); ++i)
-        points[i] = Point2f((float)(i * 5), (float)(i % 7));
-    cout << "points = " << points << ";" << endl;
-    */
-    return 0;
+  processingPathchingImages(imageId, maxX, maxY);
+  
+  return 0;
 }
