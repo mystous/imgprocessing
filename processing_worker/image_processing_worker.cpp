@@ -17,7 +17,8 @@ using namespace std;
 using namespace cv;
 using namespace sql;
 
-#define THREAD_POOL_COUNT 10
+#define THREAD_POOL_COUNT 40
+//#define QUERY_CONNECTION
 
 typedef struct{
   string imageId;
@@ -76,7 +77,9 @@ void insertPatchFileInformation(string imageId, int maxX, int maxY){
   }
   //queryString += ";";
   cout << queryString << endl;
+#ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
+#endif // QUERY_CONNECTION
 }
 void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY = -1){
   string queryString = "update lunit.imageMeta set `status` = '";
@@ -90,7 +93,9 @@ void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY
   queryString += imageId;
   queryString += "')";
   cout << queryString << endl;
+#ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
+#endif // QUERY_CONNECTION
 }
 
 void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult){
@@ -109,7 +114,9 @@ void updatePatchStatus(string imageId, Point element, string &histogram_string, 
   queryString += imageId;
   queryString += "')";
   cout << queryString << endl;
+#ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
+#endif // QUERY_CONNECTION
 }
 
 void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
@@ -122,6 +129,7 @@ void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int
   cloutWidth = ( 0 == cloutWidth ) ? patchWidth : cloutWidth;
   cloutHeight = ( 0 == cloutHeight ) ? patchHeight : cloutHeight;
 }
+
 string getFileName(string imageId, string path, int x, int y){
   string fileName = path;
   fileName += imageId;
@@ -259,20 +267,6 @@ void processingPathchingImages(string imageId, int maxX, int maxY){
   for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
     pthread_join(threads[i], NULL);
   }
-  // while(!processingQueue.empty()){
-  //   Point element = processingQueue.front();
-  //   processingQueue.pop();
-   
-  //   if( !processingPatchingImage(imageId, element) ){
-  //     processingQueue.push(element);
-  //   }
-
-  //   if( ++count > criticalCount ){
-  //     cout << "Too many retrying, breaking image processing!" << endl;
-  //     updateImageStatus(imageId, PROCESSING_FAIL, maxX, maxY);
-  //     break;
-  //   }
-  // }
 }
 
 void initMySQL(){
