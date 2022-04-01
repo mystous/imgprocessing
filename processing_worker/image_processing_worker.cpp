@@ -11,10 +11,19 @@
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
+#include <pthread.h>
 
 using namespace std;
 using namespace cv;
 using namespace sql;
+
+#define THREAD_POOL_COUNT 10
+
+typedef struct{
+  string imageId;
+  int x;
+  int y;
+} THREAD_PARAM;
 
 const string PATCHIFIED = "2";
 const string CALCULATING = "3";
@@ -34,6 +43,10 @@ const string mysqlDatabase = "lunit";
 mysql::MySQL_Driver *mysqlDriver = nullptr;
 Connection *mysqlConnection = nullptr;
 Statement *mysqlStatement = nullptr;
+queue<THREAD_PARAM> processingQueue;
+pthread_cond_t cond;
+pthread_mutex_t threadMutex;
+
 
 void insertPatchFileInformation(string imageId, int maxX, int maxY){
   int i, j;
@@ -162,12 +175,15 @@ void patchingImage(string imageId, string fileName, int &maxX, int &maxY){
   updateImageStatus(imageId, PATCHIFIED, maxX, maxY);
 }
 
-void buildProcessingQueue(queue<Point> &processingQueue, int maxX, int maxY){
+void buildProcessingQueue(string imageId, int maxX, int maxY){
   int i, j;
 
   for( i = 0 ; i < maxY ; ++i ){
     for(j = 0; j < maxX ; ++j ){
-      Point element = Point(j+1, i+1);
+      THREAD_PARAM element;
+      element.imageId = imageId;
+      element.x = j + 1;
+      element.y = i + 1;
       processingQueue.push(element);
     }
   }
@@ -213,28 +229,50 @@ bool processingPatchingImage(string imageId, Point element){
     return false;
   }
   updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult);
+ 
   return true;
 }
 
-void processingPathchingImages(string imageId, int maxX, int maxY){
-  queue<Point> processingQueue;
-  int criticalCount = maxX * maxY * 10, count = 0;
-
-  buildProcessingQueue(processingQueue, maxX, maxY);
+void * threadWorker(void *param){
   while(!processingQueue.empty()){
-    Point element = processingQueue.front();
+    pthread_mutex_lock(&threadMutex);
+    THREAD_PARAM element = processingQueue.front();
     processingQueue.pop();
+    pthread_mutex_unlock(&threadMutex);
    
-    if( !processingPatchingImage(imageId, element) ){
-      processingQueue.push(element);
-    }
-
-    if( ++count > criticalCount ){
-      cout << "Too many retrying, breaking image processing!" << endl;
-      updateImageStatus(imageId, PROCESSING_FAIL, maxX, maxY);
-      break;
-    }
+    processingPatchingImage(element.imageId, Point(element.x, element.y));
   }
+  pthread_exit(NULL);
+}
+
+void processingPathchingImages(string imageId, int maxX, int maxY){
+  int i;
+  pthread_t threads[THREAD_POOL_COUNT];
+
+  buildProcessingQueue(imageId, maxX, maxY);
+  pthread_mutex_init(&threadMutex, NULL);
+
+  for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
+    pthread_create(&threads[i], NULL, threadWorker, NULL);
+  }
+
+  for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
+    pthread_join(threads[i], NULL);
+  }
+  // while(!processingQueue.empty()){
+  //   Point element = processingQueue.front();
+  //   processingQueue.pop();
+   
+  //   if( !processingPatchingImage(imageId, element) ){
+  //     processingQueue.push(element);
+  //   }
+
+  //   if( ++count > criticalCount ){
+  //     cout << "Too many retrying, breaking image processing!" << endl;
+  //     updateImageStatus(imageId, PROCESSING_FAIL, maxX, maxY);
+  //     break;
+  //   }
+  // }
 }
 
 void initMySQL(){
