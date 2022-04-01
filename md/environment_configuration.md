@@ -133,5 +133,5 @@ mysql> alter user 'lunit'@'%' identified with mysql_native_password by 'lunit-te
 # processing_worker build
 
 ```console
-g++ -Wall -I/usr/include/cppconn image_processing_worker.cpp -o image_processing_worker $(pkg-config --cflags --libs opencv4) -L/usr/lib -lmysqlcppconn
+g++ -Wall -I/usr/include/cppconn image_processing_worker.cpp -o image_processing_worker $(pkg-config --cflags --libs opencv4) -L/usr/lib -lpthread -lmysqlcppconn
 ```
