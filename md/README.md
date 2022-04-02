@@ -8,8 +8,9 @@
 - Upload된 파일은 하나의 디렉토리에 저장, 프로세싱된 파일은 Image ID별 Directory 사용
 
 ## Source Code
-- WAS : app.js (Node.js에서 동작하는 소스 코드)
-- Image Processing : image_processing_worker.cpp (Coarse/Fine grain 코드)
+- WAS : app.js (Node.js에서 동작하는 소스 코드, 
+[app.js](app.js))
+- Image Processing : image_processing_worker.cpp (Coarse/Fine grain 코드, [image_processing_worker.cpp](image_processing_worker.cpp))
 
 ## ERD
 <img src="images/erd.png">

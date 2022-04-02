@@ -103,8 +103,6 @@ sudo curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 sudo apt install -y nodejs
 node -v
 npm -v
-mkdir lunit
-cd lunit/
 mkdir lunit_data
 mkdir patch_data
 mkdir saliency_map
