@@ -15,6 +15,7 @@ docker run -d -it -p 8899:8899 --network="host" --mount type=bind,source="$(pwd)
 Ubuntu Docker 안에서 실행
 
 ```console
+docker exec -it /bin/bash
 cd ~
 apt update
 apt upgrade
