@@ -7,7 +7,7 @@ docker pull ubuntu
 
 Ubuntu OS 실행
 ```console
-docker runt -it -p 8899:8899 --network="host" ubuntu
+docker runt -it -p 8899:8899 --network="host" --mount type=bind,source="$(pwd)",target="/root/host ubuntu
 ```
 
 # OpenCV 설치
