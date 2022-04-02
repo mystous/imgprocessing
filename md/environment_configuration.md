@@ -105,6 +105,9 @@ node -v
 npm -v
 mkdir lunit
 cd lunit/
+mkdir lunit_data
+mkdir patch_data
+mkdir saliency_map
 npm init
 npm install --save express
 npm install --save mysql
