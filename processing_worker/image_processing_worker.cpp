@@ -235,7 +235,8 @@ bool processingPatchingImage(string imageId, Point element, string queryString){
 
   saliencyMapResult = processingSaliencyMap(imageId, element);
   histogramResult = processingHistogram(imageId, element, histogram_string);
-  updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult, queryString);
+  updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult, queryString);\
+  //cout << queryString << endl;
  
   return true;
 }
@@ -254,7 +255,8 @@ void * threadWorker(void *param){
 
 void processingPathchingImages(string imageId, int maxX, int maxY){
   int i;
-  //pthread_t threads[THREAD_POOL_COUNT];
+  
+  threadCount =  threadCount > (maxX * maxY) ? maxX * maxY : threadCount;
   pthread_t *threads = (pthread_t*)malloc(sizeof(pthread_t)* threadCount);
 
   cout << threadCount << " of threads will be worked." << endl;

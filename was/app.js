@@ -124,7 +124,7 @@ function buildImageMetaAndInsert(newFileName, originalName){
 function startPatchfying(imageId, newFileName){
   return new Promise(function(resolve, reject) {
     let process = spawn('bash');
-    const command = "./image_processing_worker " + imageId + " " + newFileName + " 100\n";
+    const command = "./image_processing_worker " + imageId + " " + newFileName + " 100";
     try {
       var queryString = "update lunit.imageMeta set status = 1 where (imageId = '" + imageId + "');";
       
@@ -157,7 +157,8 @@ function startPatchfying(imageId, newFileName){
 
 app.post('/images', (req, res) => {
   var newImageId = generateUUID();
-  var newFilePath = dataLocation + newImageId + ".jpg";
+  var fileExtention = getExtensionOfFilename(req.files.image.name);
+  var newFilePath = dataLocation + newImageId + fileExtention;
   let uploadFile = req.files.image;
   const fileName = req.files.image.name; 
   uploadFile.mv(newFilePath, function (err) { 
@@ -179,7 +180,7 @@ app.post('/images', (req, res) => {
 
   jsonObj.imageId = newImageId;
   jsonObj.uploaded_at = timeStamp;
-  jsonObj.link = downloadLocation + newImageId + ".jpg";
+  jsonObj.link = downloadLocation + newImageId + fileExtention;
   jsonObj.num_x_indices = "null";
   jsonObj.num_y_indices = "null";
   jsonObj.status = "uploaded";
@@ -395,4 +396,12 @@ function getFormatDate(date){
   seconds = seconds > 10 ? seconds : '0' + seconds; 
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} `
+}
+
+function getExtensionOfFilename(filename) {
+  var _fileLen = filename.length;
+  var _lastDot = filename.lastIndexOf('.');
+  var _fileExt = filename.substring(_lastDot, _fileLen).toLowerCase();
+
+  return _fileExt;
 }
