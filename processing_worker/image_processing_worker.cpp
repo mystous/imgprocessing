@@ -175,7 +175,7 @@ void patchingImage(string imageId, string fileName, int &maxX, int &maxY){
       Mat sourceImage = originalImage(Rect(patchWidth * j, patchHeight * i, cropWidth, cropHeight));
       Mat roi = patchImage(Rect(0, 0, cropWidth, cropHeight));
       sourceImage.copyTo(roi);
-      imwrite(getPatchName(imageId, i + 1, j + 1), patchImage);
+      imwrite(getPatchName(imageId, j + 1, i + 1), patchImage);
     }
   }
 
