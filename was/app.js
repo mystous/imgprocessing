@@ -80,6 +80,7 @@ app.get('/images', (req, res) => {
 function downloadFile(filePath, req, res){
   var fileName = req.params.imageFile;
 
+  console.log(filePath + fileName + " will be download!");
   if( fs.existsSync(filePath+fileName)){
     var mimeType = mime.getType(filePath+fileName);
 
@@ -91,7 +92,7 @@ function downloadFile(filePath, req, res){
 }
 
 app.get('/files/patches/:imageFile', (req, res) => {
-  downloadFile(patchLocation, req, res);
+  downloadFile(patchLocation + req.params.imageFile.substr(0, 12) + "/", req, res);
 })
 
 app.get('/files/images/:imageFile', (req, res) => {
@@ -123,7 +124,7 @@ function buildImageMetaAndInsert(newFileName, originalName){
 function startPatchfying(imageId, newFileName){
   return new Promise(function(resolve, reject) {
     let process = spawn('bash');
-    const command = "./image_processing_worker " + imageId + " " + newFileName + "\n";
+    const command = "./image_processing_worker " + imageId + " " + newFileName + " 100\n";
     try {
       var queryString = "update lunit.imageMeta set status = 1 where (imageId = '" + imageId + "');";
       
@@ -308,7 +309,7 @@ app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
       errorResponse(res, 400, "the saliency map of this patch image is not calculated yet");
       return;
     }
-    var filePath = saliencyMapLocation;
+    var filePath = saliencyMapLocation + req.params.imageId + "/";
     var fileName = req.params.imageId + "_" + req.params.x + "_" + req.params.y + ".jpg";
 
     console.log(fileName);

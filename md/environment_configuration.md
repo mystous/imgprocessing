@@ -110,6 +110,7 @@ npm install --save express
 npm install --save mysql
 npm install --save express-fileupload 
 npm install --save cors
+npm install --save mime
 ```
 
 아래 소스 코드로 Node.js 테스트

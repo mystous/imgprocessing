@@ -12,12 +12,14 @@
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 using namespace std;
 using namespace cv;
 using namespace sql;
 
-#define THREAD_POOL_COUNT 40
+#define THREAD_POOL_COUNT 50
 #define QUERY_CONNECTION
 
 typedef struct{
@@ -33,8 +35,8 @@ const string PROCESSING_FAIL = "5";
 
 const int patchWidth = 256;
 const int patchHeight = 256;
-const string patchFilePath = "./patch_data/";
-const string saliencyMapPath = "./saliency_map/";
+string patchFilePath = "./patch_data/";
+string saliencyMapPath = "./saliency_map/";
 
 const string mysqlHost = "tcp://127.0.0.1:3306";
 const string mysqlUser = "lunit";
@@ -48,7 +50,7 @@ queue<THREAD_PARAM> processingQueue;
 pthread_cond_t cond;
 pthread_mutex_t threadMutex;
 pthread_mutex_t sqlMutex;
-
+int threadCount = THREAD_POOL_COUNT;
 
 void insertPatchFileInformation(string imageId, int maxX, int maxY){
   int i, j;
@@ -76,8 +78,6 @@ void insertPatchFileInformation(string imageId, int maxX, int maxY){
       }
     }
   }
-  //queryString += ";";
-  //cout << queryString << endl;
 #ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
 #endif // QUERY_CONNECTION
@@ -93,14 +93,13 @@ void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY
   queryString += "' where (`imageId` = '";
   queryString += imageId;
   queryString += "')";
-  cout << queryString << endl;
 #ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
 #endif // QUERY_CONNECTION
 }
 
-void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult, string queryString){
-  //pthread_mutex_lock(&sqlMutex);
+void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult, string &queryString){
+  pthread_mutex_lock(&sqlMutex);
   queryString = "update lunit.patchImageMeta set `saliencyStatus` = '";
   
   queryString += saliencyMapResult ? "4" : "3";
@@ -115,11 +114,10 @@ void updatePatchStatus(string imageId, Point element, string &histogram_string, 
   queryString += "' and `imageId` = '";
   queryString += imageId;
   queryString += "')";
-  cout << queryString << endl;
 #ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
 #endif // QUERY_CONNECTION
-  //pthread_mutex_unlock(&sqlMutex);
+  pthread_mutex_unlock(&sqlMutex);
 }
 
 void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
@@ -226,13 +224,14 @@ bool processingHistogram(string imageId, Point element, string &histogram_string
       histogram_string += ",";
     }
   }
-  //cout << "Hist: " << histogram_string << endl;
   return true;
 }
  
 bool processingPatchingImage(string imageId, Point element, string queryString){
   string histogram_string;
   bool saliencyMapResult, histogramResult;
+
+  cout << imageId << "[" << element.x << "," << element.y << "] is proceesssing." << endl; 
 
   saliencyMapResult = processingSaliencyMap(imageId, element);
   histogramResult = processingHistogram(imageId, element, histogram_string);
@@ -248,7 +247,6 @@ void * threadWorker(void *param){
     THREAD_PARAM element = processingQueue.front();
     processingQueue.pop();
     pthread_mutex_unlock(&threadMutex);
-   
     processingPatchingImage(element.imageId, Point(element.x, element.y), queryString);
   }
   pthread_exit(NULL);
@@ -256,28 +254,38 @@ void * threadWorker(void *param){
 
 void processingPathchingImages(string imageId, int maxX, int maxY){
   int i;
-  pthread_t threads[THREAD_POOL_COUNT];
+  //pthread_t threads[THREAD_POOL_COUNT];
+  pthread_t *threads = (pthread_t*)malloc(sizeof(pthread_t)* threadCount);
+
+  cout << threadCount << " of threads will be worked." << endl;
 
   buildProcessingQueue(imageId, maxX, maxY);
   pthread_mutex_init(&threadMutex, NULL);
   pthread_mutex_init(&sqlMutex, NULL);
 
-  for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
+  for( i = 0 ; i < threadCount ; ++i ){
     pthread_create(&threads[i], NULL, threadWorker, NULL);
   }
 
-  for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
+  for( i = 0 ; i < threadCount ; ++i ){
     pthread_join(threads[i], NULL);
   }
-  /*
-  buildProcessingQueue(imageId, maxX, maxY);
-  while(!processingQueue.empty()){
-    THREAD_PARAM element = processingQueue.front();
-    processingQueue.pop();
-   
-    processingPatchingImage(element.imageId, Point(element.x, element.y));
-  }
-  */
+
+  pthread_mutex_destroy(&threadMutex);
+  pthread_mutex_destroy(&sqlMutex);
+
+  cout << threadCount << " of threads are done." << endl;
+
+  free(threads);
+}
+
+void updateFileLcation(string imageId){
+  patchFilePath += imageId;
+  patchFilePath += "/";
+  mkdir(patchFilePath.c_str(), 0666);
+  saliencyMapPath += imageId;
+  saliencyMapPath += "/";
+  mkdir(saliencyMapPath.c_str(), 0666);
 }
 
 void initMySQL(){
@@ -296,7 +304,7 @@ int main(int argc, char** argv)
 {
   string  imageId, fileName; 
   int maxX = 0, maxY = 0;
-  if( 3 != argc ){
+  if( 3 > argc ){
     cout << "ImageID and File Path have to pass!" << endl;
     exit(1);
   }
@@ -305,7 +313,9 @@ int main(int argc, char** argv)
 
   imageId = argv[1];
   fileName = argv[2];
+  threadCount = atoi(argv[3]);
 
+  updateFileLcation(imageId);
   cout << "Starting image processing for [" << imageId << " : " << fileName << "]" << endl;
   patchingImage(imageId, fileName, maxX, maxY);
   processingPathchingImages(imageId, maxX, maxY);
