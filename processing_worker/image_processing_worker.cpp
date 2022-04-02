@@ -18,7 +18,7 @@ using namespace cv;
 using namespace sql;
 
 #define THREAD_POOL_COUNT 40
-//#define QUERY_CONNECTION
+#define QUERY_CONNECTION
 
 typedef struct{
   string imageId;
@@ -47,6 +47,7 @@ Statement *mysqlStatement = nullptr;
 queue<THREAD_PARAM> processingQueue;
 pthread_cond_t cond;
 pthread_mutex_t threadMutex;
+pthread_mutex_t sqlMutex;
 
 
 void insertPatchFileInformation(string imageId, int maxX, int maxY){
@@ -76,7 +77,7 @@ void insertPatchFileInformation(string imageId, int maxX, int maxY){
     }
   }
   //queryString += ";";
-  cout << queryString << endl;
+  //cout << queryString << endl;
 #ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
 #endif // QUERY_CONNECTION
@@ -98,8 +99,9 @@ void updateImageStatus(string imageId, string imgStatus, int maxX = -1, int maxY
 #endif // QUERY_CONNECTION
 }
 
-void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult){
-  string queryString = "update lunit.patchImageMeta set `saliencyStatus` = '";
+void updatePatchStatus(string imageId, Point element, string &histogram_string, bool saliencyMapResult, bool histogramResult, string queryString){
+  //pthread_mutex_lock(&sqlMutex);
+  queryString = "update lunit.patchImageMeta set `saliencyStatus` = '";
   
   queryString += saliencyMapResult ? "4" : "3";
   queryString += "', `histogramStatus` = '";
@@ -117,6 +119,7 @@ void updatePatchStatus(string imageId, Point element, string &histogram_string, 
 #ifdef QUERY_CONNECTION
   mysqlStatement->execute(queryString);
 #endif // QUERY_CONNECTION
+  //pthread_mutex_unlock(&sqlMutex);
 }
 
 void calculatePatchNumbersAndCloutSize(Size imageSize, int &maxX, int &maxY, int &cloutWidth, int &cloutHeight){
@@ -227,28 +230,26 @@ bool processingHistogram(string imageId, Point element, string &histogram_string
   return true;
 }
  
-bool processingPatchingImage(string imageId, Point element){
+bool processingPatchingImage(string imageId, Point element, string queryString){
   string histogram_string;
   bool saliencyMapResult, histogramResult;
 
   saliencyMapResult = processingSaliencyMap(imageId, element);
   histogramResult = processingHistogram(imageId, element, histogram_string);
-  if( false == saliencyMapResult || false == histogramResult ){
-    return false;
-  }
-  updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult);
+  updatePatchStatus(imageId, element, histogram_string, saliencyMapResult, histogramResult, queryString);
  
   return true;
 }
 
 void * threadWorker(void *param){
   while(!processingQueue.empty()){
+    string queryString;
     pthread_mutex_lock(&threadMutex);
     THREAD_PARAM element = processingQueue.front();
     processingQueue.pop();
     pthread_mutex_unlock(&threadMutex);
    
-    processingPatchingImage(element.imageId, Point(element.x, element.y));
+    processingPatchingImage(element.imageId, Point(element.x, element.y), queryString);
   }
   pthread_exit(NULL);
 }
@@ -259,6 +260,7 @@ void processingPathchingImages(string imageId, int maxX, int maxY){
 
   buildProcessingQueue(imageId, maxX, maxY);
   pthread_mutex_init(&threadMutex, NULL);
+  pthread_mutex_init(&sqlMutex, NULL);
 
   for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
     pthread_create(&threads[i], NULL, threadWorker, NULL);
@@ -267,6 +269,15 @@ void processingPathchingImages(string imageId, int maxX, int maxY){
   for( i = 0 ; i < THREAD_POOL_COUNT ; ++i ){
     pthread_join(threads[i], NULL);
   }
+  /*
+  buildProcessingQueue(imageId, maxX, maxY);
+  while(!processingQueue.empty()){
+    THREAD_PARAM element = processingQueue.front();
+    processingQueue.pop();
+   
+    processingPatchingImage(element.imageId, Point(element.x, element.y));
+  }
+  */
 }
 
 void initMySQL(){
