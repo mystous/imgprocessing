@@ -138,3 +138,24 @@ mysql> alter user 'lunit'@'%' identified with mysql_native_password by 'lunit-te
 ```console
 g++ -Wall -I/usr/include/cppconn image_processing_worker.cpp -o image_processing_worker $(pkg-config --cflags --libs opencv4) -L/usr/lib -lpthread -lmysqlcppconn
 ```
+
+# GitHub Code Test
+
+아래 절차에 따라서 Container 내부에서 Code Download 및 실행을 진행
+***app.js, image_processing_worker.cpp내 MySQL 접속 정보 변경***
+
+```console
+git clone git@github.com:lunit-io/aip-onco-interview-kyunam.git
+cd assignment
+mkdir lunit_data
+mkdir patch_data
+mkdir saliency_map
+npm init
+npm install --save express
+npm install --save mysql
+npm install --save express-fileupload 
+npm install --save cors
+npm install --save mime
+g++ -Wall -I/usr/include/cppconn image_processing_worker.cpp -o image_processing_worker $(pkg-config --cflags --libs opencv4) -L/usr/lib -lpthread -lmysqlcppconn
+node app.js
+```
