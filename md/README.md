@@ -48,6 +48,18 @@
 
 # API Result
 
+test_result directory내 결과 저장
+
+```
+test_result-- MySQL (DB Dump)
+           |
+           +- lunit_data (Uploaded Images)
+           |
+           +- patch_data (Patch Images with imageId directory)
+           |
+           +- saliency_map (Saliency map images with imageId directory)
+```
+
 - GET /images, GET /images/{imageId}
 
 <img src="images/result_01.png">
