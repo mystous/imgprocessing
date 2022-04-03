@@ -16,7 +16,7 @@
 <img src="images/erd.png">
 
 - 데이터 저장용 Simple Table 운영
-- 이미지 메타 저장을 위한 Table은 시퀀스 ID Hash로 Partioning (1,000) 진행
+- 이미지 메타 저장을 위한 Table은 시퀀스 ID Hash로 Partioning (100) 진행
 
 ## 환경 구성
 
@@ -51,13 +51,13 @@
 test_result directory내 결과 저장
 
 ```
-test_result-- MySQL (DB Dump)
-           |
-           +- lunit_data (Uploaded Images)
-           |
-           +- patch_data (Patch Images with imageId directory)
-           |
-           +- saliency_map (Saliency map images with imageId directory)
+test_result -+- MySQL (DB Dump)
+             |
+             +- lunit_data (Uploaded Images)
+             |
+             +- patch_data (Patch Images with imageId directory)
+             |
+             +- saliency_map (Saliency map images with imageId directory)
 ```
 
 - GET /images, GET /images/{imageId}
