@@ -40,6 +40,11 @@ connection.query(queryString, function (err, results, fields) {
   }
 });
 
+function showCurrentTime(){
+  var currentTime = new Date();
+  console.log(currentTime);
+}
+
 function errorResponse(res, errorCode, errorMessage){
   var jsonObj = new Object();
   var jsonArray = new Array();
@@ -55,6 +60,7 @@ app.get('/images', (req, res) => {
   var queryString = "select * from lunit.imageMeta, lunit.imageStatus \
   where lunit.imageMeta.status = lunit.imageStatus.statusId";
 
+  showCurrentTime();
   console.log(queryString);
   connection.query(queryString, res, function (err, results, fields) {
     var jsonArray = new Array();
@@ -188,6 +194,7 @@ app.post('/images', (req, res) => {
   jsonArray.push(JSON.parse(jsonObj));
   res.status(201).json(jsonArray);
   
+  showCurrentTime();
   startPatchfying(newImageId, newFilePath);
 })
 
@@ -211,6 +218,7 @@ app.get('/images/:imageId', (req, res) => {
   where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" 
   + req.params.imageId + "' limit 1";
 
+  showCurrentTime();
   console.log(queryString);
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     var jsonArray = new Array();
@@ -235,6 +243,7 @@ app.get('/images/:imageId/:x/:y', (req, res) => {
   where lunit.imageMeta.status = lunit.imageStatus.statusId and imageId='" 
   + req.params.imageId + "' limit 1";
 
+  showCurrentTime();
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     var jsonArray = new Array();
   
@@ -292,6 +301,7 @@ app.get('/images/:imageId/:x/:y/saliencyMap', (req, res) => {
   + req.params.x + "' and yIndex='" 
   + req.params.y + "' limit 1";
 
+  showCurrentTime();
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     if (err) {
       console.log(err);
@@ -332,6 +342,7 @@ app.get('/images/:imageId/:x/:y/histogram', (req, res) => {
   + req.params.x + "' and yIndex='" 
   + req.params.y + "' limit 1";
 
+  showCurrentTime();
   connection.query(queryString, res, function (err, results, fields) { // testQuery 실행
     if (err) {
       console.log(err);
